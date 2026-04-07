@@ -1,6 +1,6 @@
 import { eq, and, or, inArray, like, sql } from "drizzle-orm";
-import { user as userTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { user as userTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { User, FindUser, UpdateUser, DeleteUser } from "./types";
 
 function rowToUser(row: typeof userTable.$inferSelect): User {

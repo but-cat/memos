@@ -1,6 +1,6 @@
 import { eq, and, inArray } from "drizzle-orm";
-import { reaction as reactionTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { reaction as reactionTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { Reaction, FindReaction, DeleteReaction } from "./types";
 
 function rowToReaction(row: typeof reactionTable.$inferSelect): Reaction {

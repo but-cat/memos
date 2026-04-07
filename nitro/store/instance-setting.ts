@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { systemSetting } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { systemSetting } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type {
   InstanceSettingKey,
   InstanceSettingValue,

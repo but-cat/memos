@@ -1,6 +1,6 @@
 import { eq, and, inArray } from "drizzle-orm";
-import { memoRelation as memoRelationTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { memoRelation as memoRelationTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { MemoRelation, FindMemoRelation, DeleteMemoRelation } from "./types";
 
 function rowToMemoRelation(row: typeof memoRelationTable.$inferSelect): MemoRelation {

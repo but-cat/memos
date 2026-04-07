@@ -1,13 +1,13 @@
 import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
-import { getDB } from "../utils/db";
+import { getDB } from "../store/db/db";
 import {
   memo as memoTable,
   memoRelation,
   memoShare,
   reaction,
   user as userTable,
-} from "../db/schema";
+} from "../store/db/schema";
 import { eq, and, or, desc, lt, count, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { extractTags } from "../utils/helpers";

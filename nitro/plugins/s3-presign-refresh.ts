@@ -1,7 +1,7 @@
 import { defineNitroPlugin } from "nitropack/runtime";
 import cron from "node-cron";
-import { getDB } from "../utils/db";
-import { attachment as attachmentTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { attachment as attachmentTable } from "../store/db/schema";
 import { eq } from "drizzle-orm";
 
 async function refreshS3PresignedUrls() {

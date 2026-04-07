@@ -1,6 +1,6 @@
 import { eq, and, inArray, like, isNotNull } from "drizzle-orm";
-import { attachment as attachmentTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { attachment as attachmentTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type {
   Attachment,
   FindAttachment,

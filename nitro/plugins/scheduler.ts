@@ -1,7 +1,7 @@
 import { defineNitroPlugin } from "nitropack/runtime";
 import cron from "node-cron";
-import { getDB } from "../utils/db";
-import { memo as memoTable, attachment as attachmentTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { memo as memoTable, attachment as attachmentTable } from "../store/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 function extractTagsFromContent(content: string): string[] {

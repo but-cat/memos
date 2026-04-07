@@ -1,4 +1,4 @@
-import { getDB, type DrizzleDB } from "../utils/db";
+import { getDB, type DrizzleDB } from "./db/db";
 import { Cache } from "./cache";
 import type { User, UserSettingRow, InstanceSettingRow } from "./types";
 

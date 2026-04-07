@@ -1,6 +1,6 @@
 import { eq, and, or, inArray, desc, asc, notInArray, sql } from "drizzle-orm";
-import { memo as memoTable, memoRelation } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { memo as memoTable, memoRelation } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { Memo, FindMemo, UpdateMemo, DeleteMemo, MemoPayload, Visibility } from "./types";
 
 function rowToMemo(row: typeof memoTable.$inferSelect): Memo {

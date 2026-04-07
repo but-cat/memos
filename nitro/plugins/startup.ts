@@ -1,5 +1,5 @@
 import { defineNitroPlugin } from "nitropack/runtime";
-import { initializeDB } from "../utils/db";
+import { initializeDB } from "../store/db/db";
 
 export default defineNitroPlugin(async (_nitroApp) => {
   try {

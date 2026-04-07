@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
-import { getDB } from "../utils/db";
-import { idp as idpTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { idp as idpTable } from "../store/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 

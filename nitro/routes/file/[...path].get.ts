@@ -6,8 +6,8 @@ import {
   sendRedirect,
   createError,
 } from "h3";
-import { getDB } from "../../utils/db";
-import { attachment as attachmentTable } from "../../db/schema";
+import { getDB } from "../../store/db/db";
+import { attachment as attachmentTable } from "../../store/db/schema";
 import { eq } from "drizzle-orm";
 import path from "node:path";
 import { createReadStream } from "node:fs";

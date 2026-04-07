@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { readBody, setCookie, deleteCookie, getRequestHeader, createError } from "h3";
-import { getDB } from "../utils/db";
-import { user as userTable, userSetting, systemSetting } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { user as userTable, userSetting, systemSetting } from "../store/db/schema";
 import { eq } from "drizzle-orm";
 import {
   generateAccessToken,

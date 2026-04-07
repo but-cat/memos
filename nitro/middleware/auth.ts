@@ -7,8 +7,8 @@ import {
   PAT_PREFIX,
   hashPAT,
 } from "../utils/jwt";
-import { getDB } from "../utils/db";
-import { user as userTable, userSetting } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { user as userTable, userSetting } from "../store/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // Public endpoints that don't require authentication

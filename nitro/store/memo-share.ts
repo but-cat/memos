@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { memoShare as memoShareTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { memoShare as memoShareTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { MemoShare, FindMemoShare, DeleteMemoShare } from "./types";
 
 function rowToMemoShare(row: typeof memoShareTable.$inferSelect): MemoShare {

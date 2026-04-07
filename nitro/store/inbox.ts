@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { inbox as inboxTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { inbox as inboxTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type { Inbox, FindInbox, UpdateInbox, DeleteInbox, InboxMessage, InboxStatus } from "./types";
 
 function rowToInbox(row: typeof inboxTable.$inferSelect): Inbox {

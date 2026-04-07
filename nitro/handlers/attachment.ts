@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
-import { getDB } from "../utils/db";
-import { attachment as attachmentTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { attachment as attachmentTable } from "../store/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 

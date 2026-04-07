@@ -1,7 +1,7 @@
 import { defineEventHandler, setResponseHeader, getRouterParam, createError } from "h3";
 import { Feed } from "feed";
-import { getDB } from "../../utils/db";
-import { memo as memoTable, user as userTable } from "../../db/schema";
+import { getDB } from "../../store/db/db";
+import { memo as memoTable, user as userTable } from "../../store/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {

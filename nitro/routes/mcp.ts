@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, setResponseHeader } from "h3";
-import { getDB } from "../utils/db";
-import { memo, attachment as attachmentTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { memo, attachment as attachmentTable } from "../store/db/schema";
 import { eq, and, like, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 

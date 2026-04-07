@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { idp as idpTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { idp as idpTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type {
   IdentityProvider,
   FindIdentityProvider,

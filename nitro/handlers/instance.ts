@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
-import { getDB } from "../utils/db";
-import { systemSetting, user as userTable } from "../db/schema";
+import { getDB } from "../store/db/db";
+import { systemSetting, user as userTable } from "../store/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function handleInstanceService(method: string, event: H3Event) {

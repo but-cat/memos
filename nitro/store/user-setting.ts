@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { userSetting as userSettingTable, user as userTable } from "../db/schema";
-import type { DrizzleDB } from "../utils/db";
+import { userSetting as userSettingTable, user as userTable } from "./db/schema";
+import type { DrizzleDB } from "./db/db";
 import type {
   UserSettingKey,
   UserSettingValue,
