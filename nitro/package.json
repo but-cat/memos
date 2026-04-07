@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "nitro dev --port 8081",
     "build": "nitro build",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "start:cli": "tsx bin/memos.ts",
+    "dev:cli": "tsx bin/dev.ts"
   },
   "dependencies": {
     "nitropack": "^2.10.4",
@@ -16,7 +18,12 @@
     "bcryptjs": "^2.4.3",
     "uuid": "^11.1.0",
     "nanoid": "^5.1.5",
-    "feed": "^4.2.2"
+    "feed": "^4.2.2",
+    "node-cron": "^3.0.3",
+    "@aws-sdk/client-s3": "^3.787.0",
+    "@aws-sdk/s3-request-presigner": "^3.787.0",
+    "citty": "^0.1.6",
+    "c12": "^2.0.4"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -24,7 +31,9 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/uuid": "^10.0.0",
     "@types/pg": "^8.11.11",
+    "@types/node-cron": "^3.0.11",
     "typescript": "^5.8.0",
-    "drizzle-kit": "^0.31.0"
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.19.0"
   }
 }

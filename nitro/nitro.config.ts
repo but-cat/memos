@@ -15,6 +15,7 @@ export default defineNitroConfig({
   ],
   routeRules: {
     "/api/**": { cors: true },
+    "/api/attachments/**": { cors: true },
   },
   experimental: {
     asyncContext: true,
