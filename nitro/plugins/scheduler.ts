@@ -26,7 +26,9 @@ async function rebuildMemoPayloads() {
       let payload: { tags?: string[] } = {};
       try {
         payload = JSON.parse(memo.payload || "{}");
-      } catch {}
+      } catch (err) {
+        console.warn(`[scheduler] Malformed payload for memo ${memo.id}:`, err);
+      }
 
       const tags = extractTagsFromContent(memo.content);
       const currentTags = payload.tags || [];

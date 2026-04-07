@@ -93,7 +93,9 @@ export default defineEventHandler(async (event) => {
         }
 
         if (toolArgs.query) {
-          conditions.push(like(memo.content, `%${toolArgs.query}%`));
+          // Escape SQL LIKE special characters to prevent unintended pattern matching
+          const escapedQuery = String(toolArgs.query).replace(/[%_\\]/g, "\\$&");
+          conditions.push(like(memo.content, `%${escapedQuery}%`));
         }
 
         const memos = await db

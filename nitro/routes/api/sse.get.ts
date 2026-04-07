@@ -33,7 +33,11 @@ export default defineEventHandler(async (event) => {
       controller.enqueue(new TextEncoder().encode(": ping\n\n"));
 
       const send = (data: string) => {
-        controller.enqueue(new TextEncoder().encode(data));
+        try {
+          controller.enqueue(new TextEncoder().encode(data));
+        } catch (err) {
+          console.warn(`[sse] Failed to send to client ${userId}:`, err);
+        }
       };
       clients.push(send);
       sseClients.set(userId, clients);

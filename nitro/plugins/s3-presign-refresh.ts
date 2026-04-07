@@ -13,12 +13,19 @@ async function refreshS3PresignedUrls() {
         reference: attachmentTable.reference,
       })
       .from(attachmentTable)
-      .where(eq(attachmentTable.storageType, "S3_PRESIGN"));
+      .where(eq(attachmentTable.storageType, "S3_PRESIGN"))
+      .then((rows) =>
+        rows
+          .filter(
+            (r): r is { uid: string; reference: string } =>
+              typeof r.uid === "string" && typeof r.reference === "string",
+          ),
+      );
 
     if (s3Attachments.length === 0) return;
 
     const { refreshPresignedUrls } = await import("../utils/storage");
-    const updated = await refreshPresignedUrls(s3Attachments as { uid: string; reference: string }[], 3600);
+    const updated = await refreshPresignedUrls(s3Attachments, 3600);
 
     for (const [uid, newReference] of updated) {
       await db
