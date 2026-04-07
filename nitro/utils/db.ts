@@ -5,6 +5,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// SQLite is the only fully-supported driver. MySQL/PostgreSQL require separate
+// table definitions (the schema in ../db/schema.ts is SQLite-specific) and
+// can be added in a future iteration.
 export type DrizzleDB = BetterSQLite3Database<typeof schema>;
 
 let _db: DrizzleDB | null = null;
@@ -25,8 +28,14 @@ export function getDB(): DrizzleDB {
     sqlite.pragma("foreign_keys = OFF");
     sqlite.pragma("busy_timeout = 10000");
     _db = drizzleSQLite(sqlite, { schema });
+  } else if (driver === "mysql" || driver === "postgres") {
+    throw new Error(
+      `DB_DRIVER "${driver}" is not yet supported. ` +
+      `MySQL and PostgreSQL require separate Drizzle table definitions for their respective dialects. ` +
+      `Currently only "sqlite" (default) is supported.`,
+    );
   } else {
-    throw new Error(`Unsupported DB_DRIVER: ${driver}. MySQL/PostgreSQL support requires additional configuration.`);
+    throw new Error(`Unsupported DB_DRIVER: ${driver}. Only "sqlite" is currently supported.`);
   }
 
   return _db;
