@@ -74,7 +74,9 @@ export async function listMemos(
       }
       const tagMatch = filter.match(/tag\s*==\s*['"]([^'"]+)['"]/);
       if (tagMatch) {
-        conditions.push(sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${'%"' + tagMatch[1] + '"%'}`);
+        const escapedTag = tagMatch[1].replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+        const tagParam = `%"${escapedTag}"%`;
+        conditions.push(sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${tagParam} ESCAPE '\\'`);
       }
     }
   }
