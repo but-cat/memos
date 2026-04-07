@@ -7,7 +7,7 @@ export type Role = "ADMIN" | "USER";
 export type Visibility = "PUBLIC" | "PROTECTED" | "PRIVATE";
 export type MemoRelationType = "REFERENCE" | "COMMENT";
 export type InboxStatus = "UNREAD" | "ARCHIVED";
-export type AttachmentStorageType = "DATABASE" | "LOCAL" | "S3" | "EXTERNAL";
+export type AttachmentStorageType = "DATABASE" | "LOCAL" | "S3" | "S3_PRESIGN" | "EXTERNAL";
 export type IdpType = "OAUTH2";
 export type UserSettingKey =
   | "GENERAL"

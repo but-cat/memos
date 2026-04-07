@@ -1,4 +1,4 @@
-import { eq, and, inArray, like } from "drizzle-orm";
+import { eq, and, inArray, like, isNotNull } from "drizzle-orm";
 import { attachment as attachmentTable } from "../db/schema";
 import type { DrizzleDB } from "../utils/db";
 import type {
@@ -78,8 +78,7 @@ export async function listAttachments(
   }
   if (find.storageType !== undefined) conditions.push(eq(attachmentTable.storageType, find.storageType));
   if (find.hasRelatedMemo) {
-    // Filter for attachments that have a non-null memoId — use isNotNull equivalent
-    conditions.push(and(eq(attachmentTable.memoId, attachmentTable.memoId))!);
+    conditions.push(isNotNull(attachmentTable.memoId));
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
