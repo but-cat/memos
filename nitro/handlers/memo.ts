@@ -7,8 +7,9 @@ import {
   memoShare,
   reaction,
   user as userTable,
+  attachment as attachmentTable,
 } from "../store/db/schema";
-import { eq, and, or, desc, lt, count, inArray, sql } from "drizzle-orm";
+import { eq, and, or, desc, lt, count, inArray, sql, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { extractTags } from "../utils/helpers";
 
@@ -59,7 +60,16 @@ export async function handleMemoService(method: string, event: H3Event) {
     case "DeleteMemo":
       return deleteMemo(event);
     case "SetMemoResources":
-      return setMemoResources(event);
+    case "SetMemoAttachments":
+      return setMemoAttachments(event);
+    case "ListMemoAttachments":
+      return listMemoAttachments(event);
+    case "CreateMemoShare":
+      return createMemoShare(event);
+    case "ListMemoShares":
+      return listMemoShares(event);
+    case "DeleteMemoShare":
+      return deleteMemoShare(event);
     case "ListMemoComments":
       return listMemoComments(event);
     case "CreateMemoComment":
@@ -693,7 +703,173 @@ async function listMemoReactions(event: H3Event) {
   };
 }
 
-async function setMemoResources(event: H3Event) {
-  // Stub — attachment linking handled separately
+async function setMemoAttachments(event: H3Event) {
+  const body = (await readBody(event)) as {
+    name?: string;
+    attachments?: Array<{ name: string }>;
+  };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const uid = body.name?.replace("memos/", "");
+  if (!uid) throw createError({ statusCode: 400, message: "Invalid memo name" });
+
+  const memos = await db
+    .select({ id: memoTable.id, creatorId: memoTable.creatorId })
+    .from(memoTable)
+    .where(eq(memoTable.uid, uid))
+    .limit(1);
+  if (!memos[0]) throw createError({ statusCode: 404, message: "Memo not found" });
+  if (memos[0].creatorId !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const requestedUids = (body.attachments || [])
+    .map((a) => a.name?.replace("attachments/", ""))
+    .filter(Boolean) as string[];
+
+  // Detach all currently-linked attachments for this memo.
+  await db
+    .update(attachmentTable)
+    .set({ memoId: null })
+    .where(eq(attachmentTable.memoId, memos[0].id));
+
+  // Link the requested attachments.
+  if (requestedUids.length > 0) {
+    await db
+      .update(attachmentTable)
+      .set({ memoId: memos[0].id })
+      .where(inArray(attachmentTable.uid, requestedUids));
+  }
+
+  return {};
+}
+
+async function listMemoAttachments(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  const db = getDB();
+
+  const uid = body.name?.replace("memos/", "");
+  if (!uid) throw createError({ statusCode: 400, message: "Invalid memo name" });
+
+  const memos = await db
+    .select({ id: memoTable.id, visibility: memoTable.visibility, creatorId: memoTable.creatorId })
+    .from(memoTable)
+    .where(eq(memoTable.uid, uid))
+    .limit(1);
+  if (!memos[0]) throw createError({ statusCode: 404, message: "Memo not found" });
+
+  const memo = memos[0];
+  if (memo.visibility === "PRIVATE") {
+    if (!currentUser || (currentUser.id !== memo.creatorId && currentUser.role !== "ADMIN")) {
+      throw createError({ statusCode: 403, message: "Permission denied" });
+    }
+  } else if (memo.visibility === "PROTECTED" && !currentUser) {
+    throw createError({ statusCode: 401, message: "Unauthenticated" });
+  }
+
+  const attachments = await db
+    .select({
+      uid: attachmentTable.uid,
+      createdTs: attachmentTable.createdTs,
+      filename: attachmentTable.filename,
+      type: attachmentTable.type,
+      size: attachmentTable.size,
+      storageType: attachmentTable.storageType,
+      reference: attachmentTable.reference,
+    })
+    .from(attachmentTable)
+    .where(eq(attachmentTable.memoId, memo.id));
+
+  return {
+    attachments: attachments.map((a) => ({
+      name: `attachments/${a.uid}`,
+      uid: a.uid,
+      createTime: tsToISO(a.createdTs),
+      filename: a.filename,
+      type: a.type,
+      size: a.size,
+      storageType: a.storageType,
+      reference: a.reference,
+    })),
+  };
+}
+
+async function createMemoShare(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string; expiresAt?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const memoUid = body.name?.replace("memos/", "").replace("/shares", "") || "";
+  const memos = await db
+    .select({ id: memoTable.id })
+    .from(memoTable)
+    .where(eq(memoTable.uid, memoUid))
+    .limit(1);
+  if (!memos[0]) throw createError({ statusCode: 404, message: "Memo not found" });
+
+  const shareUid = nanoid(16).toLowerCase();
+  const [share] = await db
+    .insert(memoShare)
+    .values({
+      uid: shareUid,
+      memoId: memos[0].id,
+      creatorId: currentUser.id,
+      expiresTs: body.expiresAt ? new Date(body.expiresAt) : null,
+    })
+    .returning();
+
+  return {
+    memoShare: {
+      name: `memos/${memoUid}/shares/${share.uid}`,
+      uid: share.uid,
+      createTime: tsToISO(share.createdTs),
+      expiresAt: share.expiresTs ? tsToISO(share.expiresTs) : null,
+    },
+  };
+}
+
+async function listMemoShares(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const memoUid = body.name?.replace("memos/", "").replace("/shares", "") || "";
+  const memos = await db
+    .select({ id: memoTable.id })
+    .from(memoTable)
+    .where(eq(memoTable.uid, memoUid))
+    .limit(1);
+  if (!memos[0]) return { memoShares: [] };
+
+  const shares = await db
+    .select()
+    .from(memoShare)
+    .where(and(eq(memoShare.memoId, memos[0].id), eq(memoShare.creatorId, currentUser.id)));
+
+  return {
+    memoShares: shares.map((s) => ({
+      name: `memos/${memoUid}/shares/${s.uid}`,
+      uid: s.uid,
+      createTime: tsToISO(s.createdTs),
+      expiresAt: s.expiresTs ? tsToISO(s.expiresTs) : null,
+    })),
+  };
+}
+
+async function deleteMemoShare(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const shareUid = body.name?.split("/shares/").pop() || "";
+  const db = getDB();
+  await db
+    .delete(memoShare)
+    .where(and(eq(memoShare.uid, shareUid), eq(memoShare.creatorId, currentUser.id)));
   return {};
 }

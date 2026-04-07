@@ -1,9 +1,10 @@
 import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
 import { getDB } from "../store/db/db";
-import { user as userTable, memo as memoTable, userSetting } from "../store/db/schema";
+import { user as userTable, memo as memoTable, userSetting, inbox as inboxTable } from "../store/db/schema";
 import { eq, and, count, inArray, sql } from "drizzle-orm";
 import { hashPassword } from "../utils/helpers";
+import { generatePAT, hashPAT, generateTokenId } from "../utils/jwt";
 
 function tsToISO(val: any): string {
   if (!val) return new Date().toISOString();
@@ -54,6 +55,28 @@ export async function handleUserService(method: string, event: H3Event) {
       return getUserSetting(event);
     case "UpdateUserSetting":
       return updateUserSetting(event);
+    case "ListUserSettings":
+      return listUserSettings(event);
+    case "ListPersonalAccessTokens":
+      return listPersonalAccessTokens(event);
+    case "CreatePersonalAccessToken":
+      return createPersonalAccessToken(event);
+    case "DeletePersonalAccessToken":
+      return deletePersonalAccessToken(event);
+    case "ListUserWebhooks":
+      return listUserWebhooks(event);
+    case "CreateUserWebhook":
+      return createUserWebhook(event);
+    case "UpdateUserWebhook":
+      return updateUserWebhook(event);
+    case "DeleteUserWebhook":
+      return deleteUserWebhook(event);
+    case "ListUserNotifications":
+      return listUserNotifications(event);
+    case "UpdateUserNotification":
+      return updateUserNotification(event);
+    case "DeleteUserNotification":
+      return deleteUserNotification(event);
     default:
       throw createError({
         statusCode: 404,
@@ -404,4 +427,463 @@ async function updateUserSetting(event: H3Event) {
     memoVisibility: settingMap["memo-visibility"] || "PRIVATE",
     telegramUserId: settingMap["telegram-user-id"] || "",
   };
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+async function getUserSettingRow(db: ReturnType<typeof getDB>, userId: number, key: string): Promise<any> {
+  const rows = await db
+    .select()
+    .from(userSetting)
+    .where(and(eq(userSetting.userId, userId), eq(userSetting.key, key)))
+    .limit(1);
+  if (!rows[0]) return null;
+  try {
+    return JSON.parse(rows[0].value);
+  } catch {
+    return null;
+  }
+}
+
+async function upsertUserSettingRow(db: ReturnType<typeof getDB>, userId: number, key: string, value: any): Promise<void> {
+  const serialized = JSON.stringify(value);
+  await db
+    .insert(userSetting)
+    .values({ userId, key, value: serialized })
+    .onConflictDoUpdate({
+      target: [userSetting.userId, userSetting.key],
+      set: { value: serialized },
+    });
+}
+
+async function getUserByUsername(db: ReturnType<typeof getDB>, username: string) {
+  const users = await db.select().from(userTable).where(eq(userTable.username, username)).limit(1);
+  return users[0] ?? null;
+}
+
+// ── listUserSettings ─────────────────────────────────────────────────────────
+
+async function listUserSettings(event: H3Event) {
+  const body = (await readBody(event)) as { parent?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const rows = await db.select().from(userSetting).where(eq(userSetting.userId, targetUser.id));
+
+  const userSettings = rows.map((row) => {
+    let parsed: any = null;
+    try { parsed = JSON.parse(row.value); } catch { /* ignore */ }
+    return {
+      name: `users/${username}/settings/${row.key}`,
+      userId: row.userId,
+      key: row.key,
+      value: parsed,
+    };
+  });
+
+  return { userSettings };
+}
+
+// ── Personal Access Tokens ───────────────────────────────────────────────────
+
+async function listPersonalAccessTokens(event: H3Event) {
+  const body = (await readBody(event)) as { parent?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const setting = await getUserSettingRow(db, targetUser.id, "PERSONAL_ACCESS_TOKENS");
+  const tokens: any[] = setting?.personalAccessTokens ?? [];
+
+  return {
+    personalAccessTokens: tokens.map((t: any) => ({
+      name: `users/${username}/personalAccessTokens/${t.tokenId}`,
+      description: t.description || "",
+      expiresAt: t.expiresAt ?? null,
+      createdAt: t.createdAt,
+      lastUsedAt: t.lastUsedAt ?? null,
+    })),
+  };
+}
+
+async function createPersonalAccessToken(event: H3Event) {
+  const body = (await readBody(event)) as {
+    parent?: string;
+    description?: string;
+    expiresInDays?: number;
+  };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  if (currentUser.username !== username) {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const rawToken = generatePAT();
+  const tokenHash = hashPAT(rawToken);
+  const tokenId = generateTokenId();
+  const now = new Date().toISOString();
+  const expiresAt =
+    body.expiresInDays && body.expiresInDays > 0
+      ? new Date(Date.now() + body.expiresInDays * 86400 * 1000).toISOString()
+      : null;
+
+  const setting = await getUserSettingRow(db, currentUser.id, "PERSONAL_ACCESS_TOKENS");
+  const tokens: any[] = setting?.personalAccessTokens ?? [];
+  tokens.push({
+    tokenId,
+    tokenHash,
+    description: body.description || "",
+    expiresAt,
+    createdAt: now,
+    lastUsedAt: null,
+  });
+  await upsertUserSettingRow(db, currentUser.id, "PERSONAL_ACCESS_TOKENS", { personalAccessTokens: tokens });
+
+  return {
+    personalAccessToken: {
+      name: `users/${username}/personalAccessTokens/${tokenId}`,
+      description: body.description || "",
+      expiresAt,
+      createdAt: now,
+    },
+    token: rawToken,
+  };
+}
+
+async function deletePersonalAccessToken(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  // name: "users/{username}/personalAccessTokens/{tokenId}"
+  const parts = (body.name || "").split("/");
+  const username = parts[1];
+  const tokenId = parts[3];
+  if (!username || !tokenId) throw createError({ statusCode: 400, message: "Invalid name" });
+
+  if (currentUser.username !== username) {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const setting = await getUserSettingRow(db, currentUser.id, "PERSONAL_ACCESS_TOKENS");
+  const tokens: any[] = setting?.personalAccessTokens ?? [];
+  const filtered = tokens.filter((t: any) => t.tokenId !== tokenId);
+  await upsertUserSettingRow(db, currentUser.id, "PERSONAL_ACCESS_TOKENS", { personalAccessTokens: filtered });
+
+  return {};
+}
+
+// ── Webhooks ─────────────────────────────────────────────────────────────────
+
+async function listUserWebhooks(event: H3Event) {
+  const body = (await readBody(event)) as { parent?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const setting = await getUserSettingRow(db, targetUser.id, "WEBHOOKS");
+  const webhooks: any[] = setting?.webhooks ?? [];
+
+  return {
+    webhooks: webhooks.map((w: any) => ({
+      name: `users/${username}/webhooks/${w.id}`,
+      displayName: w.title || "",
+      url: w.url || "",
+    })),
+  };
+}
+
+async function createUserWebhook(event: H3Event) {
+  const body = (await readBody(event)) as {
+    parent?: string;
+    webhook?: { displayName?: string; url?: string };
+  };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  if (!body.webhook?.url) throw createError({ statusCode: 400, message: "URL is required" });
+
+  const id = crypto.randomUUID();
+  const setting = await getUserSettingRow(db, targetUser.id, "WEBHOOKS");
+  const webhooks: any[] = setting?.webhooks ?? [];
+  webhooks.push({ id, title: body.webhook.displayName || "", url: body.webhook.url });
+  await upsertUserSettingRow(db, targetUser.id, "WEBHOOKS", { webhooks });
+
+  return {
+    name: `users/${username}/webhooks/${id}`,
+    displayName: body.webhook.displayName || "",
+    url: body.webhook.url,
+  };
+}
+
+async function updateUserWebhook(event: H3Event) {
+  const body = (await readBody(event)) as {
+    webhook?: { name?: string; displayName?: string; url?: string };
+    updateMask?: { paths?: string[] };
+  };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  // webhook.name: "users/{username}/webhooks/{id}"
+  const parts = (body.webhook?.name || "").split("/");
+  const username = parts[1];
+  const webhookId = parts[3];
+  if (!username || !webhookId) throw createError({ statusCode: 400, message: "Invalid webhook name" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const setting = await getUserSettingRow(db, targetUser.id, "WEBHOOKS");
+  const webhooks: any[] = setting?.webhooks ?? [];
+  const idx = webhooks.findIndex((w: any) => w.id === webhookId);
+  if (idx === -1) throw createError({ statusCode: 404, message: "Webhook not found" });
+
+  const paths = body.updateMask?.paths ?? [];
+  const wh = webhooks[idx];
+  if (paths.length === 0 || paths.includes("display_name")) {
+    wh.title = body.webhook?.displayName ?? wh.title;
+  }
+  if (paths.length === 0 || paths.includes("url")) {
+    wh.url = body.webhook?.url ?? wh.url;
+  }
+  webhooks[idx] = wh;
+  await upsertUserSettingRow(db, targetUser.id, "WEBHOOKS", { webhooks });
+
+  return {
+    name: `users/${username}/webhooks/${wh.id}`,
+    displayName: wh.title,
+    url: wh.url,
+  };
+}
+
+async function deleteUserWebhook(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  // name: "users/{username}/webhooks/{id}"
+  const parts = (body.name || "").split("/");
+  const username = parts[1];
+  const webhookId = parts[3];
+  if (!username || !webhookId) throw createError({ statusCode: 400, message: "Invalid webhook name" });
+
+  const targetUser = await getUserByUsername(db, username);
+  if (!targetUser) throw createError({ statusCode: 404, message: "User not found" });
+
+  if (targetUser.id !== currentUser.id && currentUser.role !== "ADMIN") {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const setting = await getUserSettingRow(db, targetUser.id, "WEBHOOKS");
+  const webhooks: any[] = setting?.webhooks ?? [];
+  const filtered = webhooks.filter((w: any) => w.id !== webhookId);
+  await upsertUserSettingRow(db, targetUser.id, "WEBHOOKS", { webhooks: filtered });
+
+  return {};
+}
+
+// ── Notifications (Inbox) ────────────────────────────────────────────────────
+
+async function listUserNotifications(event: H3Event) {
+  const body = (await readBody(event)) as { parent?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  const username = body.parent?.replace("users/", "");
+  if (!username) throw createError({ statusCode: 400, message: "Invalid parent" });
+
+  if (currentUser.username !== username) {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const rows = await db
+    .select()
+    .from(inboxTable)
+    .where(eq(inboxTable.receiverId, currentUser.id));
+
+  if (!rows.length) return { notifications: [] };
+
+  // Batch-fetch sender users.
+  const senderIds = [...new Set(rows.map((r) => r.senderId))];
+  const senders = await db
+    .select({ id: userTable.id, username: userTable.username })
+    .from(userTable)
+    .where(inArray(userTable.id, senderIds));
+  const senderMap = new Map(senders.map((u) => [u.id, u.username]));
+
+  // Batch-fetch referenced memos.
+  const memoIds = new Set<number>();
+  for (const row of rows) {
+    try {
+      const msg = JSON.parse(row.message);
+      if (msg.memoComment) {
+        memoIds.add(msg.memoComment.memoId);
+        memoIds.add(msg.memoComment.relatedMemoId);
+      }
+      if (msg.memoMention) {
+        memoIds.add(msg.memoMention.memoId);
+      }
+    } catch { /* ignore */ }
+  }
+
+  const memoList = memoIds.size > 0
+    ? await db
+        .select({ id: memoTable.id, uid: memoTable.uid, content: memoTable.content })
+        .from(memoTable)
+        .where(inArray(memoTable.id, [...memoIds]))
+    : [];
+  const memoMap = new Map(memoList.map((m) => [m.id, m]));
+
+  const notifications: any[] = [];
+  for (const row of rows) {
+    let msg: any = {};
+    try { msg = JSON.parse(row.message); } catch { continue; }
+
+    const senderUsername = senderMap.get(row.senderId);
+    const base = {
+      name: `users/${username}/notifications/${row.id}`,
+      status: row.status,
+      createTime: row.createdTs instanceof Date ? row.createdTs.toISOString() : new Date(Number(row.createdTs) * 1000).toISOString(),
+      sender: `users/${senderUsername ?? row.senderId}`,
+      type: msg.type,
+    };
+
+    if (msg.type === "MEMO_COMMENT" && msg.memoComment) {
+      const memo = memoMap.get(msg.memoComment.memoId);
+      const relatedMemo = memoMap.get(msg.memoComment.relatedMemoId);
+      if (!memo || !relatedMemo) continue;
+      notifications.push({
+        ...base,
+        memoComment: {
+          memo: `memos/${memo.uid}`,
+          relatedMemo: `memos/${relatedMemo.uid}`,
+          memoSnippet: (memo.content || "").slice(0, 100),
+          relatedMemoSnippet: (relatedMemo.content || "").slice(0, 100),
+        },
+      });
+    } else if (msg.type === "MEMO_MENTION" && msg.memoMention) {
+      const memo = memoMap.get(msg.memoMention.memoId);
+      if (!memo) continue;
+      notifications.push({
+        ...base,
+        memoMention: {
+          memo: `memos/${memo.uid}`,
+          memoSnippet: (memo.content || "").slice(0, 100),
+        },
+      });
+    } else {
+      notifications.push(base);
+    }
+  }
+
+  return { notifications };
+}
+
+async function updateUserNotification(event: H3Event) {
+  const body = (await readBody(event)) as {
+    notification?: { name?: string; status?: string };
+    updateMask?: { paths?: string[] };
+  };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  // name: "users/{username}/notifications/{id}"
+  const parts = (body.notification?.name || "").split("/");
+  const username = parts[1];
+  const notifId = parseInt(parts[3], 10);
+  if (!username || isNaN(notifId)) throw createError({ statusCode: 400, message: "Invalid notification name" });
+
+  if (currentUser.username !== username) {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  const status = body.notification?.status || "UNREAD";
+  await db
+    .update(inboxTable)
+    .set({ status })
+    .where(and(eq(inboxTable.id, notifId), eq(inboxTable.receiverId, currentUser.id)));
+
+  return {
+    name: `users/${username}/notifications/${notifId}`,
+    status,
+  };
+}
+
+async function deleteUserNotification(event: H3Event) {
+  const body = (await readBody(event)) as { name?: string };
+  const currentUser = event.context.user;
+  if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
+
+  const db = getDB();
+  // name: "users/{username}/notifications/{id}"
+  const parts = (body.name || "").split("/");
+  const username = parts[1];
+  const notifId = parseInt(parts[3], 10);
+  if (!username || isNaN(notifId)) throw createError({ statusCode: 400, message: "Invalid notification name" });
+
+  if (currentUser.username !== username) {
+    throw createError({ statusCode: 403, message: "Permission denied" });
+  }
+
+  await db
+    .delete(inboxTable)
+    .where(and(eq(inboxTable.id, notifId), eq(inboxTable.receiverId, currentUser.id)));
+
+  return {};
 }

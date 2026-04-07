@@ -6,11 +6,12 @@ import { handleInstanceService } from "../handlers/instance";
 import { handleAttachmentService } from "../handlers/attachment";
 import { handleIdpService } from "../handlers/idp";
 import { handleShortcutService } from "../handlers/shortcut";
-import { handleReactionService } from "../handlers/reaction";
-import { handleMemoRelationService } from "../handlers/memo-relation";
-import { handleMemoShareService } from "../handlers/memo-share";
 
 type ServiceHandler = (method: string, event: any) => Promise<unknown>;
+
+function handleHealthService(_method: string, _event: any): Promise<unknown> {
+  return Promise.resolve({ status: "SERVING" });
+}
 
 const serviceHandlers: Record<string, ServiceHandler> = {
   "memos.api.v1.AuthService": handleAuthService,
@@ -20,9 +21,7 @@ const serviceHandlers: Record<string, ServiceHandler> = {
   "memos.api.v1.AttachmentService": handleAttachmentService,
   "memos.api.v1.IdentityProviderService": handleIdpService,
   "memos.api.v1.ShortcutService": handleShortcutService,
-  "memos.api.v1.ReactionService": handleReactionService,
-  "memos.api.v1.MemoRelationService": handleMemoRelationService,
-  "memos.api.v1.MemoShareService": handleMemoShareService,
+  "memos.api.v1.HealthService": handleHealthService,
 };
 
 export default defineEventHandler(async (event) => {
