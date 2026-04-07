@@ -5,6 +5,7 @@ import { user as userTable, memo as memoTable, userSetting, inbox as inboxTable 
 import { eq, and, count, inArray, sql } from "drizzle-orm";
 import { hashPassword } from "../utils/helpers";
 import { generatePAT, hashPAT, generateTokenId } from "../utils/jwt";
+import { randomUUID } from "node:crypto";
 
 function tsToISO(val: any): string {
   if (!val) return new Date().toISOString();
@@ -651,7 +652,7 @@ async function createUserWebhook(event: H3Event) {
 
   if (!body.webhook?.url) throw createError({ statusCode: 400, message: "URL is required" });
 
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   const setting = await getUserSettingRow(db, targetUser.id, "WEBHOOKS");
   const webhooks: any[] = setting?.webhooks ?? [];
   webhooks.push({ id, title: body.webhook.displayName || "", url: body.webhook.url });
