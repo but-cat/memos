@@ -1,0 +1,30 @@
+{
+  "name": "memos-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nitro dev --port 8081",
+    "build": "nitro build",
+    "start": "node .output/server/index.mjs"
+  },
+  "dependencies": {
+    "nitropack": "^2.10.4",
+    "h3": "^1.13.0",
+    "drizzle-orm": "^0.44.0",
+    "better-sqlite3": "^11.10.0",
+    "jose": "^5.10.0",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^11.1.0",
+    "nanoid": "^5.1.5",
+    "feed": "^4.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^10.0.0",
+    "@types/pg": "^8.11.11",
+    "typescript": "^5.8.0",
+    "drizzle-kit": "^0.31.0"
+  }
+}
