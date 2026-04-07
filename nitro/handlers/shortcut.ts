@@ -90,7 +90,7 @@ async function deleteShortcut(event: H3Event) {
   const currentUser = event.context.user;
   if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
 
-  const id = parseInt(body.name?.split("/").pop() || "0");
+  const id = body.name?.split("/").pop() || "";
   let shortcuts = await getShortcuts(currentUser.id);
   shortcuts = shortcuts.filter((s) => s.id !== id);
   await saveShortcuts(currentUser.id, shortcuts);

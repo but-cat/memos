@@ -20,6 +20,8 @@ export function getDB(): DrizzleDB {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     const sqlite = new Database(dbPath);
     sqlite.pragma("journal_mode = WAL");
+    // Foreign keys disabled to match the existing Go backend behavior and
+    // allow schema migrations to run in any order without dependency errors.
     sqlite.pragma("foreign_keys = OFF");
     sqlite.pragma("busy_timeout = 10000");
     _db = drizzleSQLite(sqlite, { schema });

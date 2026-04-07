@@ -2,7 +2,7 @@ import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
 import { getDB } from "../utils/db";
 import { user as userTable, memo as memoTable, userSetting } from "../db/schema";
-import { eq, and, count, inArray } from "drizzle-orm";
+import { eq, and, count, inArray, sql } from "drizzle-orm";
 import { hashPassword } from "../utils/helpers";
 
 function tsToISO(val: any): string {
@@ -283,28 +283,30 @@ async function getUserStats(event: H3Event) {
   };
 }
 
-async function listAllUserStats(event: H3Event) {
+async function listAllUserStats(_event: H3Event) {
   const db = getDB();
-  const users = await db
-    .select({ id: userTable.id, username: userTable.username })
-    .from(userTable);
+  // Single query: join users with memo counts grouped by user
+  const rows = await db
+    .select({
+      username: userTable.username,
+      memoCount: sql<number>`COALESCE(COUNT(${memoTable.id}), 0)`.as("memo_count"),
+    })
+    .from(userTable)
+    .leftJoin(
+      memoTable,
+      and(
+        eq(memoTable.creatorId, userTable.id),
+        eq(memoTable.rowStatus, "NORMAL"),
+      ),
+    )
+    .groupBy(userTable.id, userTable.username);
 
-  const stats = await Promise.all(
-    users.map(async (u) => {
-      const memoCount = await db
-        .select({ cnt: count() })
-        .from(memoTable)
-        .where(
-          and(
-            eq(memoTable.creatorId, u.id),
-            eq(memoTable.rowStatus, "NORMAL"),
-          ),
-        );
-      return { name: `users/${u.username}`, memoCount: memoCount[0].cnt };
-    }),
-  );
-
-  return { userStats: stats };
+  return {
+    userStats: rows.map((r) => ({
+      name: `users/${r.username}`,
+      memoCount: Number(r.memoCount),
+    })),
+  };
 }
 
 async function getUserSetting(event: H3Event) {

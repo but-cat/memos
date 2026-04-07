@@ -516,15 +516,13 @@ async function listMemoTags(event: H3Event) {
 async function renameMemoTag(event: H3Event) {
   const currentUser = event.context.user;
   if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
-  // TODO: implement tag rename across memo payloads
-  return {};
+  throw createError({ statusCode: 501, message: "RenameMemoTag not yet implemented" });
 }
 
 async function deleteMemoTag(event: H3Event) {
   const currentUser = event.context.user;
   if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
-  // TODO: implement tag deletion across memo payloads
-  return {};
+  throw createError({ statusCode: 501, message: "DeleteMemoTag not yet implemented" });
 }
 
 async function setMemoRelations(event: H3Event) {
@@ -550,23 +548,32 @@ async function setMemoRelations(event: H3Event) {
     .delete(memoRelation)
     .where(eq(memoRelation.memoId, memos[0].id));
 
-  for (const rel of body.relations || []) {
-    const relUid = rel.relatedMemo?.replace("memos/", "");
-    if (!relUid) continue;
-    const relMemo = await db
-      .select({ id: memoTable.id })
+  const relUids = (body.relations || [])
+    .map((rel) => rel.relatedMemo?.replace("memos/", ""))
+    .filter(Boolean) as string[];
+
+  if (relUids.length > 0) {
+    const relMemos = await db
+      .select({ id: memoTable.id, uid: memoTable.uid })
       .from(memoTable)
-      .where(eq(memoTable.uid, relUid))
-      .limit(1);
-    if (!relMemo[0]) continue;
-    await db
-      .insert(memoRelation)
-      .values({
-        memoId: memos[0].id,
-        relatedMemoId: relMemo[0].id,
-        type: rel.type || "REFERENCE",
-      })
-      .onConflictDoNothing();
+      .where(inArray(memoTable.uid, relUids));
+
+    const relMemoMap = new Map(relMemos.map((m) => [m.uid, m.id]));
+
+    for (const rel of body.relations || []) {
+      const relUid = rel.relatedMemo?.replace("memos/", "");
+      if (!relUid) continue;
+      const relMemoId = relMemoMap.get(relUid);
+      if (!relMemoId) continue;
+      await db
+        .insert(memoRelation)
+        .values({
+          memoId: memos[0].id,
+          relatedMemoId: relMemoId,
+          type: rel.type || "REFERENCE",
+        })
+        .onConflictDoNothing();
+    }
   }
 
   return {};

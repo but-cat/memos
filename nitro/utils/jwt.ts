@@ -130,7 +130,8 @@ export function generateTokenId(): string {
 }
 
 export function extractBearerToken(authHeader: string): string {
-  if (!authHeader.startsWith("Bearer ")) return "";
+  // Note: Bearer scheme is case-insensitive per RFC 7235
+  if (!authHeader.toLowerCase().startsWith("bearer ")) return "";
   return authHeader.slice(7);
 }
 
