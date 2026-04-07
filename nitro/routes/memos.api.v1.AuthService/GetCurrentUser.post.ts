@@ -1,14 +1,10 @@
 import { defineEventHandler, createError } from "h3";
+import { tsToISO } from "../../utils/format";
 
 export default defineEventHandler(async (event) => {
   const currentUser = event.context.user;
   if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
   const u = currentUser;
-  const tsToISO = (val: any): string => {
-    if (!val) return new Date().toISOString();
-    if (val instanceof Date) return val.toISOString();
-    return new Date(Number(val) * 1000).toISOString();
-  };
   return {
     user: {
       name: `users/${u.username}`,
