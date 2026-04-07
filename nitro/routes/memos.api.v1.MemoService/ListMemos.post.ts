@@ -39,8 +39,9 @@ export default defineEventHandler(async (event) => {
     }
     const tagMatch = body.filter.match(/tag\s*==\s*"([^"]+)"/);
     if (tagMatch) {
-      const tagParam = `%"${tagMatch[1]}"%`;
-      conditions.push(sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${tagParam}`);
+      const escapedTag = tagMatch[1].replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+      const tagParam = `%"${escapedTag}"%`;
+      conditions.push(sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${tagParam} ESCAPE '\\'`);
     }
   }
 
