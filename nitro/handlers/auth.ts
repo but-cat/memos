@@ -1,7 +1,7 @@
 import type { H3Event } from "h3";
 import { readBody, setCookie, deleteCookie, getRequestHeader, createError } from "h3";
 import { getDB } from "../utils/db";
-import { user as userTable, userSetting } from "../db/schema";
+import { user as userTable, userSetting, systemSetting } from "../db/schema";
 import { eq } from "drizzle-orm";
 import {
   generateAccessToken,
@@ -134,10 +134,11 @@ async function signUp(event: H3Event) {
   const isFirstUser = existingUsers.length === 0;
 
   if (!isFirstUser) {
+    // Check instance-level allow-signup setting (stored in system_setting table)
     const setting = await db
       .select()
-      .from(userSetting)
-      .where(eq(userSetting.key, "allow-signup"))
+      .from(systemSetting)
+      .where(eq(systemSetting.name, "allow-signup"))
       .limit(1);
     if (!setting[0] || setting[0].value !== "true") {
       throw createError({ statusCode: 403, message: "Signup is not allowed" });

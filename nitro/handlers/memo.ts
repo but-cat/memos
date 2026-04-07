@@ -171,8 +171,9 @@ async function listMemos(event: H3Event) {
     }
     const tagMatch = body.filter.match(/tag\s*==\s*"([^"]+)"/);
     if (tagMatch) {
+      const tagParam = `%"${tagMatch[1]}"%`;
       conditions.push(
-        sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${'%"' + tagMatch[1] + '"%'}`,
+        sql`json_extract(${memoTable.payload}, '$.tags') LIKE ${tagParam}`,
       );
     }
   }

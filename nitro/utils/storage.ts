@@ -58,7 +58,8 @@ export async function uploadToS3(
     return `${config.urlPrefix.replace(/\/$/, "")}/${key}`;
   }
 
-  return key;
+  // Fall back to generating a presigned URL so callers always get an accessible URL
+  return getPresignedUrl(key);
 }
 
 export async function getPresignedUrl(

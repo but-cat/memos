@@ -289,7 +289,7 @@ async function listAllUserStats(_event: H3Event) {
   const rows = await db
     .select({
       username: userTable.username,
-      memoCount: sql<number>`COALESCE(COUNT(${memoTable.id}), 0)`.as("memo_count"),
+      memoCount: sql<number>`COUNT(${memoTable.id})`.as("memo_count"),
     })
     .from(userTable)
     .leftJoin(
