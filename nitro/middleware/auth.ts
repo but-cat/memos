@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestHeader, createError } from "h3";
+import { defineEventHandler, getRequestHeader, setResponseHeader, createError } from "h3";
 import {
   verifyAccessToken,
   verifyRefreshToken,
@@ -35,6 +35,8 @@ export default defineEventHandler(async (event) => {
 
   // Only process Connect RPC API routes
   if (!reqPath.startsWith("/memos.api.v1.")) return;
+
+  setResponseHeader(event, "Content-Type", "application/connect+json");
 
   // Check if public
   if (PUBLIC_PATHS.has(reqPath)) return;
