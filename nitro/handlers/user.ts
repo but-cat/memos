@@ -2,7 +2,7 @@ import type { H3Event } from "h3";
 import { readBody, createError } from "h3";
 import { getDB } from "../utils/db";
 import { user as userTable, memo as memoTable, userSetting } from "../db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { hashPassword } from "../utils/helpers";
 
 function tsToISO(val: any): string {
@@ -98,9 +98,11 @@ async function batchGetUsers(event: H3Event) {
   if (!body.names?.length) return { users: [] };
 
   const usernames = body.names.map((u) => u.replace("users/", ""));
-  const allUsers = await db.select().from(userTable);
-  const filtered = allUsers.filter((u) => usernames.includes(u.username));
-  return { users: filtered.map((u) => convertUser(u, currentUser)) };
+  const users = await db
+    .select()
+    .from(userTable)
+    .where(inArray(userTable.username, usernames));
+  return { users: users.map((u) => convertUser(u, currentUser)) };
 }
 
 async function createUser(event: H3Event) {

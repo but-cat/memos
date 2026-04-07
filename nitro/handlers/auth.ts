@@ -85,7 +85,7 @@ async function signIn(event: H3Event) {
   const foundUser = users[0];
 
   if (!foundUser || !(await verifyPassword(password, foundUser.passwordHash))) {
-    throw createError({ statusCode: 400, message: "Unmatched username and password" });
+    throw createError({ statusCode: 400, message: "Invalid credentials" });
   }
 
   if (foundUser.rowStatus === "ARCHIVED") {

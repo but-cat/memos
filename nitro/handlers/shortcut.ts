@@ -3,6 +3,7 @@ import { readBody, createError } from "h3";
 import { getDB } from "../utils/db";
 import { userSetting } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 const SHORTCUTS_KEY = "shortcuts";
 
@@ -65,7 +66,7 @@ async function createShortcut(event: H3Event) {
   if (!currentUser) throw createError({ statusCode: 401, message: "Unauthenticated" });
 
   const shortcuts = await getShortcuts(currentUser.id);
-  const newShortcut = { ...body.shortcut, id: Date.now() };
+  const newShortcut = { ...body.shortcut, id: nanoid(12) };
   shortcuts.push(newShortcut);
   await saveShortcuts(currentUser.id, shortcuts);
   return { shortcut: newShortcut };

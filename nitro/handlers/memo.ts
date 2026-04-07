@@ -10,6 +10,7 @@ import {
 } from "../db/schema";
 import { eq, and, or, desc, lt, count, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { extractTags } from "../utils/helpers";
 
 function tsToISO(val: any): string {
   if (!val) return new Date().toISOString();
@@ -102,8 +103,8 @@ async function createMemo(event: H3Event) {
   const payload: any = { tags: [], property: {} };
   if (memoData.location) payload.location = memoData.location;
 
-  const tagMatches: string[] = memoData.content?.match(/#([^\s#]+)/g) || [];
-  payload.tags = tagMatches.map((t: string) => t.slice(1));
+  const tagMatches = extractTags(memoData.content || "");
+  payload.tags = tagMatches;
 
   const insertData: any = {
     uid,
@@ -290,8 +291,8 @@ async function updateMemo(event: H3Event) {
     } catch {
       // ignore
     }
-    const tagMatches: string[] = memoData.content.match(/#([^\s#]+)/g) || [];
-    payload.tags = tagMatches.map((t: string) => t.slice(1));
+    const tagMatches = extractTags(memoData.content);
+    payload.tags = tagMatches;
     updates.payload = JSON.stringify(payload);
   }
   if (memoData.visibility !== undefined) updates.visibility = memoData.visibility;

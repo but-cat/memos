@@ -11,8 +11,14 @@ export const REFRESH_TOKEN_COOKIE = "memos_refresh";
 export const PAT_PREFIX = "memos_pat_";
 
 function getSecretKey(): Uint8Array {
-  const secret =
-    process.env.JWT_SECRET || "memos-secret-key-change-in-production";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET environment variable must be set in production");
+    }
+    // Development-only fallback — not safe for production
+    return new TextEncoder().encode("memos-dev-secret-DO-NOT-USE-IN-PROD");
+  }
   return new TextEncoder().encode(secret);
 }
 

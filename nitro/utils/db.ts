@@ -1,11 +1,11 @@
 import Database from "better-sqlite3";
-import { drizzle as drizzleSQLite } from "drizzle-orm/better-sqlite3";
+import { drizzle as drizzleSQLite, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type DrizzleDB = ReturnType<typeof drizzleSQLite<typeof schema>>;
+export type DrizzleDB = BetterSQLite3Database<typeof schema>;
 
 let _db: DrizzleDB | null = null;
 
@@ -35,8 +35,7 @@ export async function initializeDB() {
   const driver = process.env.DB_DRIVER || "sqlite";
 
   if (driver === "sqlite") {
-    // Access the underlying better-sqlite3 instance
-    const sqlite = (db as any).$client as Database.Database;
+    const sqlite = (db as BetterSQLite3Database<typeof schema> & { $client: Database.Database }).$client;
     const tableExists = sqlite
       .prepare(
         "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='user'",
@@ -44,7 +43,6 @@ export async function initializeDB() {
       .get() as { count: number };
 
     if (tableExists.count === 0) {
-      // Resolve path relative to this file's location
       const thisDir = path.dirname(fileURLToPath(import.meta.url));
       const latestSQLPath = path.resolve(
         thisDir,

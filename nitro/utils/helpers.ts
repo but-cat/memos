@@ -26,6 +26,11 @@ export function toTimestamp(date: Date | null | undefined): string | null {
   return date.toISOString();
 }
 
+export function extractTags(content: string): string[] {
+  const matches: string[] = content.match(/#([^\s#]+)/g) || [];
+  return matches.map((t) => t.slice(1));
+}
+
 export function extractUsernameFromResourceName(
   name: string,
   prefix = "users/",
