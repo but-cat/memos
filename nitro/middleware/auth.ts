@@ -62,22 +62,28 @@ export default defineEventHandler(async (event) => {
           currentUser = users[0] ?? null;
         }
       } else {
-        // Personal Access Token — hash and look up in user_setting
+        // Personal Access Token — hash and scan PERSONAL_ACCESS_TOKENS settings
         const tokenHash = hashPAT(token);
-        const settings = await db
+        const patSettings = await db
           .select()
           .from(userSetting)
-          .where(
-            and(eq(userSetting.key, "tokens"), eq(userSetting.value, tokenHash)),
-          )
-          .limit(1);
-        if (settings[0]) {
-          const users = await db
-            .select()
-            .from(userTable)
-            .where(eq(userTable.id, settings[0].userId))
-            .limit(1);
-          currentUser = users[0] ?? null;
+          .where(eq(userSetting.key, "PERSONAL_ACCESS_TOKENS"));
+        for (const setting of patSettings) {
+          let parsed: { personalAccessTokens?: { tokenHash?: string }[] } = {};
+          try {
+            parsed = JSON.parse(setting.value);
+          } catch { /* ignore */ }
+          const pats = parsed.personalAccessTokens ?? [];
+          const matched = pats.find((p) => p.tokenHash === tokenHash);
+          if (matched) {
+            const users = await db
+              .select()
+              .from(userTable)
+              .where(eq(userTable.id, setting.userId))
+              .limit(1);
+            currentUser = users[0] ?? null;
+            break;
+          }
         }
       }
     }

@@ -14,24 +14,27 @@ import type {
 } from "./types";
 
 function parseSettingValue(key: UserSettingKey, raw: string): UserSettingValue {
-  let parsed: unknown;
+  let parsed: Record<string, unknown> = {};
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = {};
-  }
+    const v = JSON.parse(raw);
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      parsed = v as Record<string, unknown>;
+    }
+  } catch { /* keep empty object */ }
 
   switch (key) {
     case "GENERAL":
-      return { general: (parsed as { general?: GeneralUserSetting })?.general ?? (parsed as GeneralUserSetting) };
+      return { general: (parsed.general as GeneralUserSetting | undefined) ?? {} };
     case "SHORTCUTS":
-      return { shortcuts: (parsed as { shortcuts?: ShortcutItem[] })?.shortcuts ?? (parsed as ShortcutItem[]) ?? [] };
+      return { shortcuts: Array.isArray(parsed.shortcuts) ? (parsed.shortcuts as ShortcutItem[]) : [] };
     case "WEBHOOKS":
-      return { webhooks: (parsed as { webhooks?: WebhookItem[] })?.webhooks ?? (parsed as WebhookItem[]) ?? [] };
+      return { webhooks: Array.isArray(parsed.webhooks) ? (parsed.webhooks as WebhookItem[]) : [] };
     case "REFRESH_TOKENS":
-      return { refreshTokens: (parsed as { refreshTokens?: RefreshTokenItem[] })?.refreshTokens ?? (parsed as RefreshTokenItem[]) ?? [] };
+      return { refreshTokens: Array.isArray(parsed.refreshTokens) ? (parsed.refreshTokens as RefreshTokenItem[]) : [] };
     case "PERSONAL_ACCESS_TOKENS":
-      return { personalAccessTokens: (parsed as { personalAccessTokens?: PATItem[] })?.personalAccessTokens ?? (parsed as PATItem[]) ?? [] };
+      return { personalAccessTokens: Array.isArray(parsed.personalAccessTokens) ? (parsed.personalAccessTokens as PATItem[]) : [] };
+    default:
+      return {};
   }
 }
 

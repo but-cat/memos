@@ -134,13 +134,20 @@ async function signUp(event: H3Event) {
   const isFirstUser = existingUsers.length === 0;
 
   if (!isFirstUser) {
-    // Check instance-level allow-signup setting (stored in system_setting table)
+    // Check instance-level GENERAL setting for disallowUserRegistration
     const setting = await db
       .select()
       .from(systemSetting)
-      .where(eq(systemSetting.name, "allow-signup"))
+      .where(eq(systemSetting.name, "GENERAL"))
       .limit(1);
-    if (!setting[0] || setting[0].value !== "true") {
+    let disallowed = true; // Default to disallowed unless explicitly enabled
+    if (setting[0]) {
+      try {
+        const generalSetting = JSON.parse(setting[0].value) as { disallowUserRegistration?: boolean };
+        disallowed = generalSetting.disallowUserRegistration !== false;
+      } catch { /* keep default */ }
+    }
+    if (disallowed) {
       throw createError({ statusCode: 403, message: "Signup is not allowed" });
     }
   }
